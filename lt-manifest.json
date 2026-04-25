@@ -2,7 +2,7 @@
   "name": "LifeTrack",
   "short_name": "LifeTrack",
   "description": "Budget, Tasks, Health, Schedule & Reminders",
-  "start_url": "./lifetrack-1.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0d0d0d",
