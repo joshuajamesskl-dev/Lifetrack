@@ -1,6 +1,6 @@
 const CACHE = 'lifetrack-v2';
 const SHELL = [
-  './lifetrack-1.html',
+  './index.html',
   './lt-manifest.json',
   './lt-icon-192.png',
   './lt-icon-512.png'
@@ -38,7 +38,7 @@ self.addEventListener('fetch', e => {
         }
         return res;
       }).catch(() => {
-        if (e.request.mode === 'navigate') return caches.match('./lifetrack-1.html');
+        if (e.request.mode === 'navigate') return caches.match('./index.html');
       });
     })
   );
@@ -68,7 +68,7 @@ self.addEventListener('notificationclick', e => {
       for (const client of clients) {
         if (client.url.includes('lifetrack') && 'focus' in client) return client.focus();
       }
-      return self.clients.openWindow(e.notification.data?.url || './lifetrack-1.html');
+      return self.clients.openWindow(e.notification.data?.url || './index.html');
     })
   );
 });
