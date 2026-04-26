@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>LifeTrack</title>
+<link rel="manifest" href="lt-manifest.json"/>
+<meta name="theme-color" content="#0d0d0d"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="LifeTrack"/>
+<link rel="apple-touch-icon" href="lt-icon-192.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Epilogue:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#0d0d0d;
+  --surface:#141414;
+  --card:#1c1c1c;
+  --border:#2a2a2a;
+  --accent:#ffffff;
+  --accent2:#cccccc;
+  --gold:#e8b84b;
+  --blue:#5b9bd5;
+  --red:#d95f5f;
+  --orange:#d4814a;
+  --purple:#9b72c8;
+  --text:#f0f0f0;
+  --muted:#666666;
+  --radius:12px;
+  --font-display:'Playfair Display',serif;
+  --font-body:'Epilogue',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px;overflow-x:hidden;}
+#app{min-height:100vh;}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:100;background:rgba(13,13,13,0.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 16px;height:54px;}
+.nav-hamburger{background:none;border:none;cursor:pointer;color:var(--text);display:flex;flex-direction:column;gap:5px;padding:4px;flex-shrink:0;}
+.nav-hamburger span{display:block;width:22px;height:2px;background:currentColor;border-radius:2px;transition:all .22s;}
+.nav-hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+.nav-hamburger.open span:nth-child(2){opacity:0;transform:scaleX(0);}
+.nav-hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+.nav-brand{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.5px;flex:1;}
+.nav-page-label{font-size:12px;color:var(--muted);font-weight:500;flex:1;text-align:center;}
+.nav-sync{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+.sync-dot.live{background:#5aab7a;}
+.sync-dot.saving{background:var(--gold);animation:blink 1s infinite;}
+.sync-dot.err{background:var(--red);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* SIDEBAR DRAWER */
+.nav-dropdown-overlay{position:fixed;inset:0;z-index:300;pointer-events:none;background:rgba(0,0,0,0);transition:background .28s;}
+.nav-dropdown-overlay.open{pointer-events:all;background:rgba(0,0,0,.65);}
+.nav-dropdown{
+  position:fixed;top:0;left:0;bottom:0;z-index:301;
+  width:280px;max-width:85vw;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  transform:translateX(-100%);
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+  overflow-y:auto;
+  box-shadow:6px 0 40px rgba(0,0,0,.6);
+}
+.nav-dropdown.open{transform:translateX(0);}
+
+/* close X button */
+.nav-drawer-close{
+  position:absolute;top:12px;right:12px;
+  background:none;border:none;cursor:pointer;
+  color:var(--muted);font-size:20px;line-height:1;padding:6px 8px;
+  border-radius:6px;transition:color .15s;
+}
+.nav-drawer-close:hover{color:var(--text);}
+
+/* profile section */
+.nav-drawer-profile{padding:32px 20px 22px;display:flex;flex-direction:column;align-items:flex-start;gap:0;}
+.nav-drawer-avatar{
+  width:64px;height:64px;border-radius:50%;
+  background:var(--card);border:2px solid var(--border);
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  margin-bottom:12px;cursor:pointer;position:relative;flex-shrink:0;
+  transition:border-color .15s;
+}
+.nav-drawer-avatar:hover{border-color:var(--accent2);}
+.nav-drawer-avatar img{width:100%;height:100%;object-fit:cover;}
+.nav-drawer-avatar-placeholder{font-size:26px;color:var(--muted);}
+.nav-drawer-avatar-edit{
+  position:absolute;inset:0;background:rgba(0,0,0,.5);
+  display:none;align-items:center;justify-content:center;
+  font-size:11px;color:#fff;font-weight:600;letter-spacing:.3px;text-align:center;
+}
+.nav-drawer-avatar:hover .nav-drawer-avatar-edit{display:flex;}
+.nav-drawer-name{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--text);line-height:1.2;letter-spacing:-.3px;}
+.nav-drawer-sub{font-size:12px;color:var(--muted);margin-top:2px;font-weight:500;}
+
+/* nav section label */
+.nav-drawer-section{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:14px 20px 4px;}
+
+/* nav items */
+.nav-drawer-nav{padding:4px 10px 32px;display:flex;flex-direction:column;gap:1px;}
+.nav-dd-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 12px;
+  border-radius:9px;
+  cursor:pointer;
+  font-size:14px;font-weight:500;
+  color:var(--muted);
+  transition:all .15s;
+  position:relative;
+  text-align:left;
+  user-select:none;
+}
+.nav-dd-item:hover{background:var(--card);color:var(--text);}
+.nav-dd-item.active{background:var(--card);color:var(--text);font-weight:600;border-left:2px solid var(--accent2);}
+.nav-dd-item-right{display:flex;align-items:center;gap:6px;}
+.nav-dd-badge{background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:2px 6px;min-width:18px;text-align:center;}
+
+/* divider */
+.nav-drawer-divider{height:1px;background:var(--border);margin:8px 10px;}
+
+/* nav avatar in topbar */
+.nav-avatar-btn{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--card);border:1px solid var(--border);
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:16px;flex-shrink:0;transition:border-color .15s;
+}
+.nav-avatar-btn:hover{border-color:var(--accent2);}
+.nav-avatar-btn img{width:100%;height:100%;object-fit:cover;}
+
+
+/* MAIN */
+main{padding:16px 16px 40px;max-width:600px;margin:0 auto;}
+
+/* TYPOGRAPHY */
+.page-title{font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--text);margin-bottom:2px;}
+.page-sub{font-size:12px;color:var(--muted);margin-bottom:18px;font-weight:500;}
+.section-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;}
+.card-accent{border-left:3px solid var(--accent2);}
+.card-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px;}
+.card-row:last-child{border-bottom:none;}
+.card-label{color:var(--muted);font-size:13px;}
+.card-val{font-weight:600;}
+
+/* STAT GRID */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+.stat-num{font-family:var(--font-display);font-size:24px;font-weight:700;line-height:1.1;}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:.4px;}
+
+/* BUDGET RING */
+.ring-wrap{display:flex;flex-direction:column;align-items:center;padding:20px 0 10px;}
+.ring-svg{transform:rotate(-90deg);}
+.ring-center{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.ring-container{position:relative;display:flex;align-items:center;justify-content:center;width:160px;height:160px;}
+.ring-pct{font-family:var(--font-display);font-size:32px;font-weight:700;}
+.ring-lbl{font-size:11px;color:var(--muted);font-weight:500;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:9px;padding:10px 16px;font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;}
+.btn-primary{background:var(--text);color:var(--bg);}
+.btn-primary:hover{background:var(--accent2);}
+.btn-ghost{background:var(--card);border:1px solid var(--border);color:var(--text);}
+.btn-ghost:hover{border-color:var(--accent2);}
+.btn-danger{background:rgba(217,95,95,.15);border:1px solid rgba(217,95,95,.3);color:var(--red);}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:7px;}
+.btn-full{width:100%;justify-content:center;}
+.fab{position:fixed;bottom:24px;right:16px;z-index:99;background:var(--text);color:var(--bg);border:none;border-radius:50%;width:52px;height:52px;font-size:26px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;transition:transform .15s;font-weight:700;}
+.fab:active{transform:scale(.93);}
+
+/* LIST ITEMS */
+.list-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;}
+.list-item:hover{border-color:var(--accent2);}
+.list-item-header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+.list-item-title{font-weight:600;font-size:14px;}
+.list-item-sub{font-size:12px;color:var(--muted);margin-top:3px;}
+
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.badge-green{background:rgba(255,255,255,.08);color:var(--accent2);}
+.badge-red{background:rgba(217,95,95,.12);color:var(--red);}
+.badge-gold{background:rgba(232,184,75,.12);color:var(--gold);}
+.badge-blue{background:rgba(91,155,213,.12);color:var(--blue);}
+.badge-purple{background:rgba(155,114,200,.12);color:var(--purple);}
+.badge-orange{background:rgba(212,129,74,.12);color:var(--orange);}
+
+/* FORMS */
+.form-group{margin-bottom:14px;}
+.form-label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px 13px;font-family:var(--font-body);font-size:14px;color:var(--text);transition:border-color .15s;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--accent2);}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath fill='%23666666' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.form-textarea{min-height:70px;resize:vertical;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.form-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .15s;}
+.modal{background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent2);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;padding:20px;padding-bottom:max(20px,env(safe-area-inset-bottom));animation:slideUp .2s;}
+.modal-title{font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px;}
+.modal-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* HABIT CHECKBOX */
+.habit-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.habit-row:last-child{border-bottom:none;}
+.habit-check{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;flex-shrink:0;}
+.habit-check.done{background:var(--text);border-color:var(--text);color:var(--bg);}
+.habit-name{flex:1;font-size:14px;font-weight:500;}
+.habit-streak{font-size:12px;color:var(--gold);font-weight:600;}
+
+/* TIMELINE */
+.timeline-row{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);}
+.timeline-row:last-child{border-bottom:none;}
+.timeline-time{font-size:12px;color:var(--muted);font-weight:600;width:44px;flex-shrink:0;padding-top:2px;}
+.timeline-dot{width:10px;height:10px;border-radius:50%;background:var(--accent2);flex-shrink:0;margin-top:4px;}
+.timeline-dot.done{background:var(--muted);}
+.timeline-content{flex:1;}
+.timeline-title{font-size:14px;font-weight:500;}
+.timeline-tag{font-size:11px;color:var(--muted);}
+
+/* REMINDER */
+.reminder-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
+.reminder-item.urgent{border-left:3px solid var(--red);}
+.reminder-item.done{opacity:.45;}
+.reminder-bell{font-size:20px;flex-shrink:0;}
+.reminder-body{flex:1;}
+.reminder-text{font-size:14px;font-weight:500;}
+.reminder-when{font-size:11px;color:var(--muted);margin-top:2px;}
+.reminder-actions{display:flex;gap:6px;}
+
+/* PROGRESS BAR */
+.prog-bar{height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:6px;}
+.prog-fill{height:100%;border-radius:4px;transition:width .5s;}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:var(--muted);}
+.empty-text{font-size:13px;line-height:1.5;}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:999;background:var(--text);color:var(--bg);padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);display:none;max-width:90%;text-align:center;}
+
+/* SEARCH */
+.search-bar{position:relative;margin-bottom:14px;}
+.search-bar input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px 10px 36px;font-family:var(--font-body);font-size:14px;color:var(--text);}
+.search-bar input:focus{outline:none;border-color:var(--accent2);}
+.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;}
+
+/* UTILITY */
+.fw-700{font-weight:700;}
+.fw-600{font-weight:600;}
+.fs-11{font-size:11px;}
+.fs-12{font-size:12px;}
+.fs-13{font-size:13px;}
+.mt-3{margin-top:3px;}
+.mt-4{margin-top:4px;}
+.mt-6{margin-top:6px;}
+.mt-8{margin-top:8px;}
+.mt-10{margin-top:10px;}
+.cur-pointer{cursor:pointer;}
+.d-flex{display:flex;}
+.ai-center{align-items:center;}
+.jc-between{justify-content:space-between;}
+.text-center{text-align:center;}
+.col-dot{display:inline-block;border-radius:50%;flex-shrink:0;}
+
+.text-accent{color:var(--accent2);}
+.text-red{color:var(--red);}
+.text-gold{color:var(--gold);}
+.text-blue{color:var(--blue);}
+.text-muted{color:var(--muted);}
+
+/* CATEGORY DOTS */
+.cat-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;}
+
+/* TABS */
+.inner-tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:14px;}
+.inner-tab{flex:1;padding:7px;border:none;background:transparent;color:var(--muted);border-radius:7px;font-family:var(--font-body);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;}
+.inner-tab.active{background:var(--text);color:var(--bg);}
+
+/* HEALTH RINGS */
+.health-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+.health-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center;}
+.health-num{font-family:var(--font-display);font-size:22px;font-weight:700;}
+.health-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+.health-unit{font-size:11px;color:var(--muted);}
+
+/* WATER TRACKER */
+.water-drops{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;}
+.water-drop{width:32px;height:32px;border-radius:50%;border:2px solid var(--border);background:transparent;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.water-drop.filled{background:var(--blue);border-color:var(--blue);}
+
+/* NOTE CARD */
+.note-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;}
+.note-card:hover{border-color:var(--accent2);}
+.note-card-title{font-weight:600;font-size:14px;margin-bottom:4px;}
+.note-card-body{font-size:13px;color:var(--muted);line-height:1.5;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.note-card-meta{font-size:11px;color:var(--muted);margin-top:8px;display:flex;justify-content:space-between;}
+.note-tag{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(255,255,255,.08);color:var(--accent2);margin-right:4px;}
+/* PWA INSTALL BANNER */
+#pwa-banner{position:fixed;bottom:16px;left:12px;right:12px;z-index:150;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;display:none;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.6);}
+#pwa-banner .pwa-text{flex:1;font-size:13px;}
+#pwa-banner .pwa-title{font-weight:700;color:var(--text);margin-bottom:2px;}
+/* SETTINGS DROPDOWN */
+.settings-dropdown{
+  position:absolute;top:54px;right:12px;z-index:400;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;min-width:220px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+  opacity:0;pointer-events:none;transform:translateY(-6px);
+  transition:opacity .18s,transform .18s;
+}
+.settings-dropdown.open{opacity:1;pointer-events:all;transform:translateY(0);}
+.settings-dd-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);}
+.settings-dd-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.settings-dd-item{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;color:var(--text);cursor:pointer;transition:background .12s;}
+.settings-dd-item:hover{background:var(--card);}
+.settings-dd-item:last-child{border-radius:0 0 12px 12px;}
+.settings-dd-item-icon{font-size:16px;width:20px;text-align:center;color:var(--muted);}
+.settings-dd-sep{height:1px;background:var(--border);margin:4px 0;}
+/* Settings gear button */
+.nav-gear-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:6px;line-height:1;border-radius:8px;transition:color .15s,background .15s;display:flex;align-items:center;}
+.nav-gear-btn:hover{color:var(--text);background:var(--card);}
+
+.month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.month-nav-btn{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 12px;font-size:18px;cursor:pointer;line-height:1;}
+.month-nav-label{font-size:14px;font-weight:600;color:var(--text);}
+/* RECUR BADGE */
+.recur-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--blue);font-weight:600;}
+
+.alert{border-radius:var(--radius);padding:11px 14px;margin-bottom:10px;font-size:13px;display:flex;align-items:flex-start;gap:8px;line-height:1.5;}
+.alert-warn{background:rgba(240,192,64,.08);border:1px solid rgba(240,192,64,.25);color:var(--gold);}
+.alert-danger{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
+.alert-info{background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:var(--blue);}
+</style>
+</head>
+<body>
+<div id="app">
+<nav>
+  <button class="nav-hamburger" onclick="toggleDropdown()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-brand">LifeTrack</div>
+  <div style="display:flex;align-items:center;gap:8px;position:relative">
+    <div class="nav-sync"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">…</span></div>
+    <button class="nav-gear-btn" onclick="toggleSettingsDD(event)" id="navGearBtn" title="Settings">⚙</button>
+  </div>
+</nav>
+
+<!-- SETTINGS MINI DROPDOWN -->
+<div id="settingsDDOverlay" style="position:fixed;inset:0;z-index:399;display:none" onclick="closeSettingsDD()"></div>
+<div class="settings-dropdown" id="settingsDD">
+  <div class="settings-dd-header"><div class="settings-dd-title">Settings</div></div>
+  <div class="settings-dd-item" onclick="closeSettingsDD();go('settings')">
+    <span class="settings-dd-item-icon">⚙</span> Preferences
+  </div>
+</div>
+
+<!-- SIDEBAR DRAWER -->
+<div class="nav-dropdown-overlay" id="dropdownOverlay" onclick="closeDropdown()"></div>
+<input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(event)"/>
+<div class="nav-dropdown" id="navDropdown">
+  <button class="nav-drawer-close" onclick="closeDropdown()" aria-label="Close menu">✕</button>
+
+  <!-- Profile -->
+  <div class="nav-drawer-profile">
+    <div class="nav-drawer-avatar" onclick="document.getElementById('avatarInput').click()" id="drawerAvatar" title="Change photo">
+      <div class="nav-drawer-avatar-placeholder" id="drawerAvatarPlaceholder">?</div>
+      <div class="nav-drawer-avatar-edit">Change</div>
+    </div>
+    <div class="nav-drawer-name" id="drawerName">LifeTrack</div>
+    <div class="nav-drawer-sub" id="drawerSub">Your Life, Tracked</div>
+  </div>
+
+  <div class="nav-drawer-divider"></div>
+  <div class="nav-drawer-section">Navigation</div>
+
+  <!-- Nav items — words only, no emojis, no settings -->
+  <nav class="nav-drawer-nav">
+    <div class="nav-dd-item" id="d-dashboard" onclick="goDropdown('dashboard')">
+      <span>Home</span>
+    </div>
+    <div class="nav-dd-item" id="d-budget" onclick="goDropdown('budget')">
+      <span>Budget</span>
+    </div>
+    <div class="nav-dd-item" id="d-tasks" onclick="goDropdown('tasks')">
+      <span>Tasks</span>
+      <span class="nav-dd-item-right">
+        <span class="nav-dd-badge" id="ddTaskBadge" style="display:none"></span>
+      </span>
+    </div>
+    <div class="nav-dd-item" id="d-health" onclick="goDropdown('health')">
+      <span>Health</span>
+    </div>
+    <div class="nav-dd-item" id="d-notes" onclick="goDropdown('notes')">
+      <span>Notes</span>
+    </div>
+    <div class="nav-dd-item" id="d-schedule" onclick="goDropdown('schedule')">
+      <span>Schedule</span>
+    </div>
+    <div class="nav-dd-item" id="d-reminders" onclick="goDropdown('reminders')">
+      <span>Reminders</span>
+      <span class="nav-dd-item-right">
+        <span class="nav-dd-badge" id="ddReminderBadge" style="display:none"></span>
+      </span>
+    </div>
+  </nav>
+</div>
+
+<main id="main"></main>
+</div>
+<div id="toast"></div>
+<div id="pwa-banner">
+  <div class="pwa-text"><div class="pwa-title">Install LifeTrack</div><div style="color:var(--muted);font-size:12px">Add to home screen for the best experience</div></div>
+  <button class="btn btn-primary btn-sm" onclick="installPWA()">Install</button>
+  <button class="btn btn-ghost btn-sm" onclick="dismissPWA()">✕</button>
+</div>
+
+<script>
+// ═══════════════════════════════════
+//  SUPABASE
+// ═══════════════════════════════════
+const SUPA_URL='https://trjsaajfqcamwyjpixof.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyanNhYWpmcWNhbXd5anBpeG9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNzUyNDksImV4cCI6MjA5MjY1MTI0OX0.CYlSXJZs-3_yELhLPFZsk3ZEt69NbuzckyIPj41lEyw';
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+
+// ═══════════════════════════════════
+//  STATE
+// ═══════════════════════════════════
+let page='dashboard';
+let editingId=null;
+let isOnline=navigator.onLine;
+let syncQ=[];
+
+
+// ═══════════════════════════════════
+//  CACHE
+// ═══════════════════════════════════
+const C={
+  get(k){try{return JSON.parse(localStorage.getItem(k))||[];}catch{return[];}},
+  set(k,v){localStorage.setItem(k,JSON.stringify(v));},
+  getObj(k,d={}){try{return JSON.parse(localStorage.getItem(k))||d;}catch{return d;}},
+  setObj(k,v){localStorage.setItem(k,JSON.stringify(v));}
+};
+
+// ═══════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════
+function getSettings(){return C.getObj('lt_settings',{currency:'JMD $',weeklyBudget:20000,monthlyBudget:80000,name:'',waterGoal:8,sleepGoal:8});}
+function saveSettings(s){C.setObj('lt_settings',s);sbSet('lt_settings_store',{id:'main',...s});}
+function cur(){return getSettings().currency||'JMD $';}
+function fmt(n){return cur()+' '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2});}
+
+// ═══════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+const _debouncedSbSet=debounce((table,obj)=>sbSet(table,obj),600);
+let _todayCache='';
+function today(){
+  if(!_todayCache){const d=new Date();_todayCache=`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;}
+  return _todayCache;
+}
+// Refresh date cache at midnight
+function _refreshTodayCache(){_todayCache='';const now=new Date();const msUntilMidnight=(new Date(now.getFullYear(),now.getMonth(),now.getDate()+1)-now);setTimeout(()=>{_refreshTodayCache();},msUntilMidnight);}
+_refreshTodayCache();function p2(n){return String(n).padStart(2,'0');}
+function fmtDate(s){if(!s)return'—';return new Date(s+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function fmtTime(s){if(!s)return'';try{const[h,m]=s.split(':');const H=parseInt(h);return`${H>12?H-12:H||12}:${m} ${H>=12?'PM':'AM'}`;}catch{return s;}}
+function thisMonth(){const d=new Date();return`${d.getFullYear()}-${p2(d.getMonth()+1)}`;}
+function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function v(id){const el=document.getElementById(id);return el?el.value:'';}
+function emptyState(icon,txt){return`<div class="empty"><div class="empty-text">${txt}</div></div>`;}
+function catColor(cat){const map={Food:'var(--orange)',Transport:'var(--blue)',Health:'var(--blue)',Bills:'var(--red)',Shopping:'var(--purple)',Entertainment:'var(--gold)',Savings:'var(--accent2)',Other:'var(--muted)'};return map[cat]||'var(--muted)';}
+
+// ═══════════════════════════════════
+//  SYNC STATUS
+// ═══════════════════════════════════
+function setSync(state,label){
+  const d=document.getElementById('syncDot');
+  const l=document.getElementById('syncLabel');
+  if(d)d.className='sync-dot '+state;
+  if(l)l.textContent=label;
+}
+window.addEventListener('online',()=>{isOnline=true;setSync('live','Live');flushQ();});
+window.addEventListener('offline',()=>{isOnline=false;setSync('err','Offline');});
+
+// ═══════════════════════════════════
+//  SUPABASE DB HELPERS
+// ═══════════════════════════════════
+async function sbGet(table){
+  if(!isOnline)return C.get('cache_'+table);
+  try{
+    const{data,error}=await sb.from(table).select('*').order('created_at',{ascending:false}).limit(500);
+    if(error)throw error;
+    C.set('cache_'+table,data||[]);
+    return data||[];
+  }catch(e){return C.get('cache_'+table);}
+}
+async function sbSet(table,row){
+  const r=Array.isArray(row)?row:[row];
+  if(!isOnline){syncQ.push({table,rows:r});return;}
+  setSync('saving','Saving…');
+  try{
+    await sb.from(table).upsert(r,{onConflict:'id'});
+    setSync('live','Live');
+  }catch(e){syncQ.push({table,rows:r});setSync('err','Offline');}
+}
+async function sbDel(table,id){
+  if(!isOnline){syncQ.push({table,id,op:'del'});return;}
+  setSync('saving','Saving…');
+  try{await sb.from(table).delete().eq('id',id);setSync('live','Live');}
+  catch(e){syncQ.push({table,id,op:'del'});setSync('err','Offline');}
+}
+async function flushQ(){
+  if(!syncQ.length)return;
+  setSync('saving','Syncing…');
+  const q=[...syncQ];syncQ=[];
+  for(const item of q){
+    try{
+      if(item.op==='del')await sb.from(item.table).delete().eq('id',item.id);
+      else await sb.from(item.table).upsert(item.rows,{onConflict:'id'});
+    }catch{syncQ.push(item);}
+  }
+  setSync(syncQ.length?'err':'live',syncQ.length?'Offline':'Live');
+}
+
+// ═══════════════════════════════════
+//  DROPDOWN / SIDEBAR NAVIGATION
+// ═══════════════════════════════════
+function toggleDropdown(){
+  const dd=document.getElementById('navDropdown');
+  const overlay=document.getElementById('dropdownOverlay');
+  const hamburger=document.querySelector('.nav-hamburger');
+  const open=dd.classList.toggle('open');
+  overlay.classList.toggle('open',open);
+  hamburger?.classList.toggle('open',open);
+  if(open) updateDrawerProfile();
+}
+function closeDropdown(){
+  document.getElementById('navDropdown').classList.remove('open');
+  document.getElementById('dropdownOverlay').classList.remove('open');
+  document.querySelector('.nav-hamburger')?.classList.remove('open');
+}
+function goDropdown(p){
+  closeDropdown();
+  go(p);
+}
+function toggleSettingsDD(e){
+  e.stopPropagation();
+  const dd=document.getElementById('settingsDD');
+  const overlay=document.getElementById('settingsDDOverlay');
+  const open=dd.classList.toggle('open');
+  overlay.style.display=open?'block':'none';
+}
+function closeSettingsDD(){
+  document.getElementById('settingsDD').classList.remove('open');
+  document.getElementById('settingsDDOverlay').style.display='none';
+}
+function updateDrawerProfile(){
+  const s=getSettings();
+  const nameEl=document.getElementById('drawerName');
+  const subEl=document.getElementById('drawerSub');
+  if(nameEl)nameEl.textContent=s.name||'LifeTrack';
+  if(subEl)subEl.textContent=s.name?'Personal Dashboard':'Your Life, Tracked';
+  // Load avatar
+  const avatarImg=localStorage.getItem('lt_avatar');
+  const avatarEl=document.getElementById('drawerAvatar');
+  const placeholder=document.getElementById('drawerAvatarPlaceholder');
+  if(avatarImg&&avatarEl){
+    // Remove existing img if any
+    avatarEl.querySelectorAll('img').forEach(i=>i.remove());
+    const img=document.createElement('img');img.src=avatarImg;
+    avatarEl.insertBefore(img,placeholder);
+    if(placeholder)placeholder.style.display='none';
+  } else if(placeholder){
+    placeholder.style.display='';
+    placeholder.textContent=s.name?s.name[0].toUpperCase():'?';
+  }
+  // Update topbar avatar btn
+  const navBtn=document.getElementById('navAvatarBtn');
+  if(navBtn){
+    navBtn.innerHTML='';
+    if(avatarImg){
+      const img=document.createElement('img');img.src=avatarImg;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%';
+      navBtn.appendChild(img);
+    } else {
+      navBtn.innerHTML=`<span style="font-size:14px;color:var(--muted)">${s.name?s.name[0].toUpperCase():'☰'}</span>`;
+    }
+  }
+}
+function handleAvatarUpload(e){
+  const file=e.target.files?.[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    localStorage.setItem('lt_avatar',ev.target.result);
+    updateDrawerProfile();
+    toast('Profile photo updated ✓');
+  };
+  reader.readAsDataURL(file);
+  e.target.value=''; // reset so same file can be re-selected
+}
+function go(p){
+  page=p;
+  document.querySelectorAll('.nav-dd-item').forEach(t=>t.classList.remove('active'));
+  document.getElementById('d-'+p)?.classList.add('active');
+  document.querySelector('.fab')?.remove();
+  renderPage();
+}
+function addFab(fn){
+  const b=document.createElement('button');b.className='fab';b.innerHTML='+';b.onclick=fn;
+  document.getElementById('app').appendChild(b);
+}
+
+async function renderPage(){
+  const m=document.getElementById('main');
+  m.innerHTML=`<div style="text-align:center;padding:40px;color:var(--muted)">Loading…</div>`;
+  updateBadges();
+  if(page==='dashboard')m.innerHTML=await renderDashboard();
+  else if(page==='budget'){m.innerHTML=await renderBudget();addFab(openBudgetFab);}
+  else if(page==='tasks'){m.innerHTML=await renderTasks();addFab(()=>openTaskModal());}
+  else if(page==='health')m.innerHTML=await renderHealth();
+  else if(page==='notes'){m.innerHTML=await renderNotes();addFab(()=>openNoteModal());}
+  else if(page==='schedule'){m.innerHTML=await renderSchedule();addFab(()=>openScheduleModal());}
+  else if(page==='reminders'){m.innerHTML=await renderReminders();addFab(()=>openReminderModal());}
+  else if(page==='settings')m.innerHTML=renderSettings();
+}
+
+function updateBadges(){
+  const tasks=C.get('cache_lt_tasks')||[];
+  const overdue=tasks.filter(t=>t.status!=='done'&&t.due_date&&t.due_date<today()).length;
+  const tb=document.getElementById('ddTaskBadge');
+  if(tb){tb.textContent=overdue;tb.style.display=overdue?'inline':'none';}
+  const reminders=C.get('cache_lt_reminders')||[];
+  const due=reminders.filter(r=>!r.done&&r.due_at&&r.due_at<=new Date().toISOString()).length;
+  const rb=document.getElementById('ddReminderBadge');
+  if(rb){rb.textContent=due;rb.style.display=due?'inline':'none';}
+}
+
+// ═══════════════════════════════════
+//  TOAST + MODAL
+// ═══════════════════════════════════
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.display='block';
+  setTimeout(()=>t.style.display='none',2800);
+}
+function showModal(html){
+  closeModal();
+  const ov=document.createElement('div');ov.className='modal-overlay';ov.id='_modal';
+  ov.onclick=e=>{if(e.target===ov)closeModal();};
+  const m=document.createElement('div');m.className='modal';m.innerHTML=html;
+  ov.appendChild(m);document.body.appendChild(ov);
+}
+function closeModal(){document.getElementById('_modal')?.remove();editingId=null;}
+
+// ═══════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════
+async function renderDashboard(){
+  const s=getSettings();
+  const [expenses,income,tasks,reminders]=await Promise.all([
+    sbGet('lt_expenses'),sbGet('lt_income'),sbGet('lt_tasks'),sbGet('lt_reminders')
+  ]);
+  const now=new Date();
+  const mo=`${now.getFullYear()}-${p2(now.getMonth()+1)}`;
+  const moExp=expenses.filter(e=>(e.date||'').startsWith(mo)).reduce((a,e)=>a+Number(e.amount||0),0);
+  const moInc=income.filter(i=>(i.date||'').startsWith(mo)).reduce((a,i)=>a+Number(i.amount||0),0);
+  const budget=Number(s.monthlyBudget)||80000;
+  const pct=Math.min(100,Math.round(moExp/budget*100));
+  const ringColor=pct>90?'var(--red)':pct>70?'var(--gold)':'var(--accent2)';
+  const r=70,circ=2*Math.PI*r;
+  const fill=circ*(1-pct/100);
+  const pendingTasks=tasks.filter(t=>t.status!=='done').length;
+  const overdueTasks=tasks.filter(t=>t.status!=='done'&&t.due_date&&t.due_date<today()).length;
+  const urgentReminders=reminders.filter(r=>!r.done&&r.urgent);
+  const dueReminders=reminders.filter(r=>!r.done&&r.due_at&&r.due_at<=new Date().toISOString());
+  const alerts=[];
+  if(!s.name)alerts.push({t:'info',m:'Set your name — tap ⚙ to open settings.'});
+  if(overdueTasks)alerts.push({t:'danger',m:`⚠️ ${overdueTasks} overdue task${overdueTasks>1?'s':''}!`});
+  if(dueReminders.length)alerts.push({t:'warn',m:`🔔 ${dueReminders.length} reminder${dueReminders.length>1?'s':''} due now!`});
+  if(pct>90)alerts.push({t:'danger',m:`💸 Budget ${pct}% used — watch spending!`});
+  const recentExp=expenses.slice(0,4);
+  const upcomingReminders=reminders.filter(r=>!r.done&&r.due_at).sort((a,b)=>a.due_at.localeCompare(b.due_at)).slice(0,3);
+  return`
+  <div class="page-title">${esc(s.name?`Hey, ${s.name} 👋`:'LifeTrack')}</div>
+  <div class="page-sub">${fmtDate(today())} — ${now.toLocaleDateString('en-US',{weekday:'long'})}</div>
+  ${alerts.map(a=>`<div class="alert alert-${a.t}">${a.m}</div>`).join('')}
+  <div class="card" style="margin-bottom:12px">
+    <div class="section-label">Monthly Budget</div>
+    <div class="ring-wrap">
+      <div class="ring-container">
+        <svg class="ring-svg" width="160" height="160" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="${r}" fill="none" stroke="var(--border)" stroke-width="12"/>
+          <circle cx="80" cy="80" r="${r}" fill="none" stroke="${ringColor}" stroke-width="12"
+            stroke-dasharray="${circ}" stroke-dashoffset="${fill}" stroke-linecap="round"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-pct" style="color:${ringColor}">${pct}%</div>
+          <div class="ring-lbl">of budget</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:24px;margin-top:8px;font-size:13px">
+        <div style="text-align:center"><div style="color:var(--red);font-weight:700">${fmt(moExp)}</div><div class="text-muted">Spent</div></div>
+        <div style="text-align:center"><div style="color:var(--blue);font-weight:700">${fmt(moInc)}</div><div class="text-muted">Income</div></div>
+        <div style="text-align:center"><div style="color:${budget-moExp>=0?'var(--accent2)':'var(--red)'};font-weight:700">${fmt(Math.abs(budget-moExp))}</div><div class="text-muted">${budget-moExp>=0?'Remaining':'Over'}</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card" onclick="go('tasks')" style="cursor:pointer">
+      <div class="stat-num" style="color:var(--accent2)">${pendingTasks}</div>
+      <div class="stat-lbl">Pending Tasks</div>
+      ${overdueTasks?`<div style="font-size:11px;color:var(--red);margin-top:3px">${overdueTasks} overdue</div>`:''}
+    </div>
+    <div class="stat-card" onclick="go('reminders')" style="cursor:pointer">
+      <div class="stat-num" style="color:var(--gold)">${urgentReminders.length}</div>
+      <div class="stat-lbl">Urgent Alerts</div>
+      ${dueReminders.length?`<div style="font-size:11px;color:var(--orange);margin-top:3px">${dueReminders.length} due now</div>`:''}
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-label" style="margin-bottom:8px">Recent Expenses</div>
+    ${recentExp.length?recentExp.map(e=>`
+      <div class="card-row" onclick="go('budget')">
+        <div><span style="background:${catColor(e.category)};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px"></span>${esc(e.name)}<div style="font-size:11px;color:var(--muted)">${esc(e.category)} · ${fmtDate(e.date)}</div></div>
+        <div style="color:var(--red);font-weight:600">${fmt(e.amount)}</div>
+      </div>`).join(''):emptyState('','No expenses yet')}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:10px" onclick="go('budget')">View All →</button>
+  </div>
+  ${upcomingReminders.length?`<div class="card">
+    <div class="section-label" style="margin-bottom:8px">Upcoming Reminders</div>
+    ${upcomingReminders.map(r=>`<div class="reminder-item ${r.urgent?'urgent':''}">
+      <div class="reminder-body"><div class="reminder-text">${esc(r.text)}</div><div class="reminder-when">${fmtDate(r.due_at?.slice(0,10))} ${r.due_at?fmtTime(r.due_at.slice(11,16)):''}</div></div>
+    </div>`).join('')}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:8px" onclick="go('reminders')">All Reminders →</button>
+  </div>`:''}`;
+}
+
+// ═══════════════════════════════════
+//  BUDGET
+// ═══════════════════════════════════
+let budgetTab='expenses';
+let budgetMonthOffset=0; // 0=current, -1=last month, etc.
+function budgetMonth(){
+  const d=new Date();
+  d.setMonth(d.getMonth()+budgetMonthOffset);
+  return`${d.getFullYear()}-${p2(d.getMonth()+1)}`;
+}
+function budgetMonthLabel(){
+  const d=new Date();
+  d.setMonth(d.getMonth()+budgetMonthOffset);
+  return d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+async function renderBudget(){
+  const [expenses,income]=await Promise.all([sbGet('lt_expenses'),sbGet('lt_income')]);
+  const s=getSettings();
+  const mo=budgetMonth();
+  const moExp=expenses.filter(e=>(e.date||'').startsWith(mo));
+  const moInc=income.filter(i=>(i.date||'').startsWith(mo));
+  const totalExp=moExp.reduce((a,e)=>a+Number(e.amount||0),0);
+  const totalInc=moInc.reduce((a,i)=>a+Number(i.amount||0),0);
+  const budget=Number(s.monthlyBudget)||80000;
+  const net=totalInc-totalExp;
+  const cats={};moExp.forEach(e=>{cats[e.category]=(cats[e.category]||0)+Number(e.amount||0);});
+  const catList=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  return`
+  <div class="page-title">Budget</div>
+  <div class="month-nav">
+    <button class="month-nav-btn" onclick="shiftBudgetMonth(-1)">‹</button>
+    <span class="month-nav-label">${budgetMonthLabel()}</span>
+    <button class="month-nav-btn" onclick="shiftBudgetMonth(1)" ${budgetMonthOffset>=0?'disabled style="opacity:.3;cursor:default"':''}>›</button>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-num text-red">${fmt(totalExp)}</div><div class="stat-lbl">Spent</div></div>
+    <div class="stat-card"><div class="stat-num text-blue">${fmt(totalInc)}</div><div class="stat-lbl">Income</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:${net>=0?'var(--accent2)':'var(--red)'}">${fmt(Math.abs(net))}</div><div class="stat-lbl">${net>=0?'Surplus':'Deficit'}</div></div>
+    <div class="stat-card"><div class="stat-num text-gold">${fmt(budget-totalExp)}</div><div class="stat-lbl">Remaining</div></div>
+  </div>
+  <div class="card">
+    <div class="section-label">Budget Used</div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>${fmt(totalExp)}</span><span style="color:var(--muted)">${fmt(budget)}</span></div>
+    <div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,totalExp/budget*100).toFixed(1)}%;background:${totalExp/budget>0.9?'var(--red)':totalExp/budget>0.7?'var(--gold)':'var(--accent2)'}"></div></div>
+  </div>
+  ${catList.length?`<div class="card"><div class="section-label">By Category</div>${catList.map(([cat,amt])=>`
+    <div class="card-row"><div><span style="background:${catColor(cat)};width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:7px"></span>${esc(cat)}</div>
+    <div><span style="color:var(--red);font-weight:600">${fmt(amt)}</span> <span style="color:var(--muted);font-size:11px">${Math.round(amt/totalExp*100)}%</span></div></div>`).join('')}
+  </div>`:''}
+  <div class="inner-tabs">
+    <button class="inner-tab ${budgetTab==='expenses'?'active':''}" onclick="setBudgetTab('expenses',this)">Expenses</button>
+    <button class="inner-tab ${budgetTab==='income'?'active':''}" onclick="setBudgetTab('income',this)">Income</button>
+    <button class="inner-tab ${budgetTab==='all'?'active':''}" onclick="setBudgetTab('all',this)">All Time</button>
+  </div>
+  <div class="card" style="padding:8px 12px">
+    <input class="form-input" id="budgetSearch" placeholder="Search entries…" oninput="filterBudgetList()" style="margin:0"/>
+  </div>
+  <div id="budgetList">${renderBudgetList(budgetTab,expenses,income)}</div>`;
+}
+function renderBudgetList(tab,expenses,income){
+  if(tab==='expenses'){
+    const mo=budgetMonth();
+    const moExp=[...expenses].filter(e=>(e.date||'').startsWith(mo)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    return moExp.length?moExp.map(e=>`<div class="list-item" onclick="openExpenseModal('${e.id}')">
+      <div class="list-item-header"><span class="list-item-title">${esc(e.name)}</span><span style="color:var(--red);font-weight:700">${fmt(e.amount)}</span></div>
+      <div class="list-item-sub"><span style="background:${catColor(e.category)};width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px"></span>${esc(e.category)} · ${fmtDate(e.date)}${e.recurring?` · <span class="recur-badge">🔁 recurring</span>`:''}${e.note?` · ${esc(e.note)}`:''}</div>
+    </div>`).join(''):emptyState('','No expenses this month. Tap + to add.');
+  }
+  if(tab==='income'){
+    const mo=budgetMonth();
+    const moInc=[...income].filter(i=>(i.date||'').startsWith(mo)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    return moInc.length?moInc.map(i=>`<div class="list-item" onclick="openIncomeModal('${i.id}')">
+      <div class="list-item-header"><span class="list-item-title">${esc(i.source)}</span><span style="color:var(--blue);font-weight:700">${fmt(i.amount)}</span></div>
+      <div class="list-item-sub">${esc(i.category||'Income')} · ${fmtDate(i.date)}</div>
+    </div>`).join(''):emptyState('','No income recorded this month.');
+  }
+  // all time — use the passed income array (already fresh), not the cache
+  const all=[...expenses.map(e=>({...e,_type:'exp'})),...income.map(i=>({...i,_type:'inc'}))].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,30);
+  return all.length?all.map(r=>r._type==='exp'
+    ?`<div class="list-item" onclick="openExpenseModal('${r.id}')"><div class="list-item-header"><span class="list-item-title">${esc(r.name)}</span><span style="color:var(--red);font-weight:700">-${fmt(r.amount)}</span></div><div class="list-item-sub">${esc(r.category)} · ${fmtDate(r.date)}</div></div>`
+    :`<div class="list-item" onclick="openIncomeModal('${r.id}')"><div class="list-item-header"><span class="list-item-title">${esc(r.source)}</span><span style="color:var(--blue);font-weight:700">+${fmt(r.amount)}</span></div><div class="list-item-sub">${esc(r.category||'Income')} · ${fmtDate(r.date)}</div></div>`
+  ).join(''):emptyState('','No records yet.');
+}
+function setBudgetTab(tab,el){
+  budgetTab=tab;
+  document.querySelectorAll('.inner-tab').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const expenses=C.get('cache_lt_expenses')||[];
+  const income=C.get('cache_lt_income')||[];
+  document.getElementById('budgetList').innerHTML=renderBudgetList(tab,expenses,income);
+}
+function filterBudgetList(){
+  const q=(document.getElementById('budgetSearch')?.value||'').toLowerCase();
+  let expenses=C.get('cache_lt_expenses')||[];
+  let income=C.get('cache_lt_income')||[];
+  if(q){
+    expenses=expenses.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.category||'').toLowerCase().includes(q)||(e.note||'').toLowerCase().includes(q));
+    income=income.filter(i=>(i.source||'').toLowerCase().includes(q)||(i.category||'').toLowerCase().includes(q));
+  }
+  document.getElementById('budgetList').innerHTML=renderBudgetList(budgetTab,expenses,income);
+}
+
+function shiftBudgetMonth(dir){
+  budgetMonthOffset=Math.min(0,budgetMonthOffset+dir);
+  go('budget');
+}
+function openBudgetFab(){
+  showModal(`<div class="modal-title">Add Entry</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+      <button class="btn btn-primary btn-full" onclick="closeModal();setTimeout(openExpenseModal,50)">Add Expense</button>
+      <button class="btn btn-ghost btn-full" onclick="closeModal();setTimeout(openIncomeModal,50)">Add Income</button>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+const EXP_CATS=['Food','Transport','Health','Bills','Shopping','Entertainment','Savings','Other'];
+function openExpenseModal(id=null){
+  editingId=id;
+  const all=C.get('cache_lt_expenses')||[];
+  const e=id?all.find(x=>x.id===id):{};
+  showModal(`<div class="modal-title">${id?'Edit Expense':'New Expense'}</div>
+    <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="e_name" value="${esc(e.name||'')}" placeholder="e.g. Groceries"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Amount *</label><input class="form-input" id="e_amount" type="number" value="${e.amount||''}" placeholder="0.00"/></div>
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="e_date" type="date" value="${e.date||today()}"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Category</label>
+      <select class="form-select" id="e_cat">${EXP_CATS.map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label class="form-label">Note (optional)</label><input class="form-input" id="e_note" value="${esc(e.note||'')}" placeholder="What was this for?"/></div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="e_recurring" ${e.recurring?'checked':''} style="width:18px;height:18px;accent-color:var(--accent2)"/>
+      <label for="e_recurring" style="font-size:14px;cursor:pointer">Recurring (repeats monthly)</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveExpense()">Save</button>
+      ${id?`<button class="btn btn-danger btn-sm" onclick="delExpense('${id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveExpense(){
+  const name=v('e_name').trim();if(!name){alert('Name required');return;}
+  const amount=Number(v('e_amount'));if(!amount){alert('Enter amount');return;}
+  const all=C.get('cache_lt_expenses')||[];
+  const existing=editingId?all.find(x=>x.id===editingId):{};
+  const obj={id:editingId||uid(),name,amount,date:v('e_date')||today(),category:v('e_cat')||'Other',note:v('e_note'),recurring:document.getElementById('e_recurring')?.checked||false,created_at:existing.created_at||new Date().toISOString()};
+  if(editingId){const i=all.findIndex(x=>x.id===editingId);if(i>-1)all[i]=obj;else all.unshift(obj);}else all.unshift(obj);
+  C.set('cache_lt_expenses',all);closeModal();go('budget');
+  await sbSet('lt_expenses',obj);
+}
+async function delExpense(id){
+  if(!confirm('Delete this expense?'))return;
+  const all=(C.get('cache_lt_expenses')||[]).filter(x=>x.id!==id);
+  C.set('cache_lt_expenses',all);closeModal();go('budget');
+  await sbDel('lt_expenses',id);
+}
+function openIncomeModal(id=null){
+  editingId=id;
+  const all=C.get('cache_lt_income')||[];
+  const e=id?all.find(x=>x.id===id):{};
+  showModal(`<div class="modal-title">${id?'Edit Income':'Add Income'}</div>
+    <div class="form-group"><label class="form-label">Source *</label><input class="form-input" id="i_source" value="${esc(e.source||'')}" placeholder="e.g. Salary, Freelance"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Amount *</label><input class="form-input" id="i_amount" type="number" value="${e.amount||''}" placeholder="0.00"/></div>
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="i_date" type="date" value="${e.date||today()}"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Category</label>
+      <select class="form-select" id="i_cat">
+        ${['Salary','Freelance','Business','Investment','Gift','Other'].map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveIncome()">Save</button>
+      ${id?`<button class="btn btn-danger btn-sm" onclick="delIncome('${id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveIncome(){
+  const source=v('i_source').trim();if(!source){alert('Source required');return;}
+  const amount=Number(v('i_amount'));if(!amount){alert('Enter amount');return;}
+  const all=C.get('cache_lt_income')||[];
+  const existing=editingId?all.find(x=>x.id===editingId):{};
+  const obj={id:editingId||uid(),source,amount,date:v('i_date')||today(),category:v('i_cat')||'Income',created_at:existing.created_at||new Date().toISOString()};
+  if(editingId){const i=all.findIndex(x=>x.id===editingId);if(i>-1)all[i]=obj;else all.unshift(obj);}else all.unshift(obj);
+  C.set('cache_lt_income',all);closeModal();go('budget');
+  await sbSet('lt_income',obj);
+}
+async function delIncome(id){
+  if(!confirm('Delete?'))return;
+  const all=(C.get('cache_lt_income')||[]).filter(x=>x.id!==id);
+  C.set('cache_lt_income',all);closeModal();go('budget');
+  await sbDel('lt_income',id);
+}
+
+// ═══════════════════════════════════
+//  TASKS
+// ═══════════════════════════════════
+let taskFilter='all';
+async function renderTasks(){
+  const tasks=await sbGet('lt_tasks');
+  const sorted=[...tasks].sort((a,b)=>{
+    if(a.status==='done'&&b.status!=='done')return 1;
+    if(a.status!=='done'&&b.status==='done')return-1;
+    const pri={high:0,medium:1,low:2};
+    return(pri[a.priority]||1)-(pri[b.priority]||1);
+  });
+  const filtered=taskFilter==='all'?sorted:taskFilter==='done'?sorted.filter(t=>t.status==='done'):sorted.filter(t=>t.status!=='done');
+  const done=tasks.filter(t=>t.status==='done').length;
+  const pct=tasks.length?Math.round(done/tasks.length*100):0;
+  return`
+  <div class="page-title">Tasks</div>
+  <div class="page-sub">${done}/${tasks.length} done · ${pct}% complete</div>
+  ${tasks.length?`<div class="card" style="padding:12px 16px">
+    <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:var(--accent2)"></div></div>
+  </div>`:''}
+  <div class="card" style="padding:8px 12px">
+    <input class="form-input" id="taskSearch" placeholder="Search tasks…" oninput="filterTaskList()" style="margin:0"/>
+  </div>
+  <div class="inner-tabs">
+    <button class="inner-tab ${taskFilter==='all'?'active':''}" onclick="setTaskFilter('all',this)">All</button>
+    <button class="inner-tab ${taskFilter==='pending'?'active':''}" onclick="setTaskFilter('pending',this)">Pending</button>
+    <button class="inner-tab ${taskFilter==='done'?'active':''}" onclick="setTaskFilter('done',this)">Done</button>
+  </div>
+  <div id="taskList">${filtered.length?filtered.map(taskCard).join(''):emptyState('','No tasks here. Tap + to add.')}</div>`;
+}
+function taskCard(t){
+  const overdue=t.status!=='done'&&t.due_date&&t.due_date<today();
+  const priColor=t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--gold)':'var(--muted)';
+  return`<div class="list-item ${t.status==='done'?'':''}">
+    <div class="list-item-header">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div onclick="toggleTask('${t.id}')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${t.status==='done'?'var(--accent2)':'var(--border)'};background:${t.status==='done'?'var(--card)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent2);flex-shrink:0">${t.status==='done'?'✓':''}</div>
+        <span class="list-item-title" style="${t.status==='done'?'text-decoration:line-through;color:var(--muted)':''}">${esc(t.title)}</span>
+      </div>
+      <button onclick="openTaskModal('${t.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px">⋯</button>
+    </div>
+    ${t.description?`<div class="list-item-sub" style="margin-left:32px">${esc(t.description)}</div>`:''}
+    <div style="display:flex;gap:6px;margin-top:6px;margin-left:32px;flex-wrap:wrap">
+      <span class="badge" style="background:rgba(0,0,0,.2);border:1px solid ${priColor};color:${priColor}">${t.priority||'medium'}</span>
+      ${t.due_date?`<span class="badge ${overdue?'badge-red':'badge-blue'}">${overdue?'⚠️ Overdue · ':''} ${fmtDate(t.due_date)}</span>`:''}
+      ${t.category?`<span class="badge badge-purple">${esc(t.category)}</span>`:''}
+    </div>
+  </div>`;
+}
+async function toggleTask(id){
+  const all=C.get('cache_lt_tasks')||[];
+  const i=all.findIndex(t=>t.id===id);
+  if(i===-1)return;
+  all[i].status=all[i].status==='done'?'pending':'done';
+  C.set('cache_lt_tasks',all);
+  // Optimistic DOM update — toggle visuals without full re-render
+  const nowDone=all[i].status==='done';
+  const checkEl=document.querySelector(`[onclick="toggleTask('${id}')"]`);
+  if(checkEl){
+    checkEl.style.background=nowDone?'var(--card)':'transparent';
+    checkEl.style.borderColor=nowDone?'var(--accent2)':'var(--border)';
+    checkEl.textContent=nowDone?'✓':'';
+  }
+  const titleEl=checkEl?.closest('.list-item-header')?.querySelector('.list-item-title');
+  if(titleEl){titleEl.style.textDecoration=nowDone?'line-through':'none';titleEl.style.color=nowDone?'var(--muted)':'';}
+  updateBadges();
+  await sbSet('lt_tasks',all[i]);
+}
+function filterTaskList(){
+  const q=(document.getElementById('taskSearch')?.value||'').toLowerCase();
+  const tasks=C.get('cache_lt_tasks')||[];
+  const sorted=[...tasks].sort((a,b)=>{if(a.status==='done'&&b.status!=='done')return 1;if(a.status!=='done'&&b.status==='done')return-1;const pri={high:0,medium:1,low:2};return(pri[a.priority]||1)-(pri[b.priority]||1);});
+  const filtered=sorted
+    .filter(t=>taskFilter==='all'?true:taskFilter==='done'?t.status==='done':t.status!=='done')
+    .filter(t=>!q||(t.title||'').toLowerCase().includes(q)||(t.description||'').toLowerCase().includes(q)||(t.category||'').toLowerCase().includes(q));
+  document.getElementById('taskList').innerHTML=filtered.length?filtered.map(taskCard).join(''):emptyState('','No tasks match your search.');
+}
+function setTaskFilter(f,el){
+  taskFilter=f;
+  document.querySelectorAll('.inner-tab').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const tasks=C.get('cache_lt_tasks')||[];
+  const sorted=[...tasks].sort((a,b)=>{if(a.status==='done'&&b.status!=='done')return 1;if(a.status!=='done'&&b.status==='done')return-1;const pri={high:0,medium:1,low:2};return(pri[a.priority]||1)-(pri[b.priority]||1);});
+  const filtered=f==='all'?sorted:f==='done'?sorted.filter(t=>t.status==='done'):sorted.filter(t=>t.status!=='done');
+  document.getElementById('taskList').innerHTML=filtered.length?filtered.map(taskCard).join(''):emptyState('✅','Nothing here.');
+}
+function openTaskModal(id=null){
+  editingId=id;
+  const all=C.get('cache_lt_tasks')||[];
+  const t=id?all.find(x=>x.id===id):{};
+  showModal(`<div class="modal-title">${id?'Edit Task':'New Task'}</div>
+    <div class="form-group"><label class="form-label">Title *</label><input class="form-input" id="t_title" value="${esc(t.title||'')}" placeholder="e.g. Buy groceries"/></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="t_desc">${esc(t.description||'')}</textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Priority</label>
+        <select class="form-select" id="t_pri">
+          <option value="low" ${t.priority==='low'?'selected':''}>Low</option>
+          <option value="medium" ${!t.priority||t.priority==='medium'?'selected':''}>Medium</option>
+          <option value="high" ${t.priority==='high'?'selected':''}>High</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Due Date</label><input class="form-input" id="t_due" type="date" value="${t.due_date||''}"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Category (optional)</label><input class="form-input" id="t_cat" value="${esc(t.category||'')}" placeholder="e.g. Work, Personal, Health"/></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveTask()">Save</button>
+      ${id?`<button class="btn btn-danger btn-sm" onclick="delTask('${id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveTask(){
+  const title=v('t_title').trim();if(!title){alert('Title required');return;}
+  const all=C.get('cache_lt_tasks')||[];
+  const existing=editingId?all.find(x=>x.id===editingId):{};
+  const obj={id:editingId||uid(),title,description:v('t_desc'),priority:v('t_pri')||'medium',due_date:v('t_due')||null,category:v('t_cat'),status:existing.status||'pending',created_at:existing.created_at||new Date().toISOString()};
+  if(editingId){const i=all.findIndex(x=>x.id===editingId);if(i>-1)all[i]=obj;else all.unshift(obj);}else all.unshift(obj);
+  C.set('cache_lt_tasks',all);closeModal();go('tasks');
+  await sbSet('lt_tasks',obj);
+}
+async function delTask(id){
+  if(!confirm('Delete task?'))return;
+  const all=(C.get('cache_lt_tasks')||[]).filter(x=>x.id!==id);
+  C.set('cache_lt_tasks',all);closeModal();go('tasks');
+  await sbDel('lt_tasks',id);
+}
+
+// ═══════════════════════════════════
+//  HEALTH
+// ═══════════════════════════════════
+async function renderHealth(){
+  const s=getSettings();
+  const [habits,logs]=await Promise.all([sbGet('lt_habits'),sbGet('lt_habit_logs')]);
+  const todayLogs=logs.filter(l=>l.log_date===today());
+  const waterLog=todayLogs.find(l=>l.habit_id==='_water');
+  const sleepLog=todayLogs.find(l=>l.habit_id==='_sleep');
+  const waterCount=Number(waterLog?.value||0);
+  const sleepHrs=Number(sleepLog?.value||0);
+  const waterGoal=s.waterGoal||8;
+  const sleepGoal=s.sleepGoal||8;
+  // Habit completion today
+  const habitsDoneToday=habits.filter(h=>todayLogs.some(l=>l.habit_id===h.id&&l.value>0));
+  // Weekly streak calculation
+  const last7=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);last7.push(`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`);}
+  return`
+  <div class="page-title">Health</div>
+  <div class="page-sub">Today — ${fmtDate(today())}</div>
+  <div class="health-grid">
+    <div class="health-card"><div class="health-num text-blue">${waterCount}</div><div class="health-lbl">Water</div><div class="health-unit">/ ${waterGoal} glasses</div></div>
+    <div class="health-card"><div class="health-num text-purple">${sleepHrs}</div><div class="health-lbl">Sleep</div><div class="health-unit">/ ${sleepGoal} hrs</div></div>
+    <div class="health-card"><div class="health-num text-accent">${habitsDoneToday.length}</div><div class="health-lbl">Habits</div><div class="health-unit">/ ${habits.length} done</div></div>
+  </div>
+  <div class="card">
+    <div class="section-label">💧 Water Intake</div>
+    <div class="water-drops" id="waterDrops">
+      ${Array.from({length:waterGoal},(_,i)=>`<div class="water-drop ${i<waterCount?'filled':''}" onclick="setWater(${i<waterCount?i:i+1})"></div>`).join('')}
+    </div>
+    <div id="waterHint" style="font-size:12px;color:var(--muted)">${waterCount>=waterGoal?'Goal reached!':waterCount+' of '+waterGoal+' glasses'}</div>
+  </div>
+  <div class="card">
+    <div class="section-label">😴 Sleep Last Night (hours)</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <input class="form-input" id="sleepInput" type="number" value="${sleepHrs}" placeholder="0" min="0" max="24" step="0.5" style="flex:1"/>
+      <button class="btn btn-primary btn-sm" onclick="saveSleep()">Log</button>
+    </div>
+    <div class="prog-bar" style="margin-top:8px"><div class="prog-fill" style="width:${Math.min(100,sleepHrs/sleepGoal*100).toFixed(0)}%;background:var(--purple)"></div></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">${sleepHrs>=sleepGoal?'Good sleep!':sleepHrs+' / '+sleepGoal+' hrs goal'}</div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="section-label" style="margin-bottom:0">Daily Habits</div>
+      <button class="btn btn-ghost btn-sm" onclick="openHabitModal()">+ Add Habit</button>
+    </div>
+    ${habits.length?habits.map(h=>{
+      const done=todayLogs.some(l=>l.habit_id===h.id&&l.value>0);
+      const streak=calcStreak(h.id,logs);
+      return`<div class="habit-row">
+        <div class="habit-check ${done?'done':''}" onclick="toggleHabit('${h.id}','${done}')">${done?'✓':''}</div>
+        <div class="habit-name">${esc(h.name)}</div>
+        ${streak?`<div class="habit-streak">🔥 ${streak}</div>`:''}
+        <button onclick="openHabitModal('${h.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px">⋯</button>
+      </div>`;
+    }).join(''):emptyState('','No habits yet. Add one!')}
+  </div>
+  <div class="card">
+    <div class="section-label">This Week</div>
+    <div style="display:flex;gap:6px;justify-content:space-between">
+      ${last7.map(d=>{
+        const dayLogs=logs.filter(l=>l.log_date===d);
+        const anyDone=dayLogs.some(l=>l.value>0);
+        const label=new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'}).slice(0,2);
+        return`<div style="text-align:center;flex:1">
+          <div style="width:32px;height:32px;border-radius:50%;margin:0 auto 4px;background:${anyDone?'var(--accent2)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--bg)">${anyDone?'✓':''}</div>
+          <div style="font-size:10px;color:var(--muted)">${label}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+function calcStreak(habitId,logs){
+  // Build a set of dates this habit was logged
+  const logDates=new Set(logs.filter(l=>l.habit_id===habitId&&l.value>0).map(l=>l.log_date));
+  let streak=0;
+  const d=new Date();
+  // Start from today and walk backwards
+  for(let i=0;i<365;i++){
+    const ds=`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+    if(logDates.has(ds))streak++;
+    else break;
+    d.setDate(d.getDate()-1);
+  }
+  return streak;
+}
+async function setWater(n){
+  const logs=C.get('cache_lt_habit_logs')||[];
+  const existing=logs.find(l=>l.habit_id==='_water'&&l.log_date===today());
+  const obj={id:existing?.id||uid(),habit_id:'_water',log_date:today(),value:n,created_at:existing?.created_at||new Date().toISOString()};
+  if(existing){const i=logs.findIndex(l=>l.id===existing.id);logs[i]=obj;}else logs.push(obj);
+  C.set('cache_lt_habit_logs',logs);
+  const s=getSettings();const waterGoal=s.waterGoal||8;
+  // Re-render drops with correct onclick for toggle-off support
+  const container=document.getElementById('waterDrops');
+  if(container){
+    container.innerHTML=Array.from({length:waterGoal},(_,i)=>`<div class="water-drop ${i<n?'filled':''}" onclick="setWater(${i<n?i:i+1})"></div>`).join('');
+  }
+  const hint=document.getElementById('waterHint');
+  if(hint)hint.textContent=n>=waterGoal?'Goal reached!':n+' of '+waterGoal+' glasses';
+  await _debouncedSbSet('lt_habit_logs',obj);
+}
+async function saveSleep(){
+  const hrs=Number(document.getElementById('sleepInput')?.value||0);
+  const logs=C.get('cache_lt_habit_logs')||[];
+  const existing=logs.find(l=>l.habit_id==='_sleep'&&l.log_date===today());
+  const obj={id:existing?.id||uid(),habit_id:'_sleep',log_date:today(),value:hrs,created_at:existing?.created_at||new Date().toISOString()};
+  if(existing){const i=logs.findIndex(l=>l.id===existing.id);logs[i]=obj;}else logs.push(obj);
+  C.set('cache_lt_habit_logs',logs);toast('Sleep logged!');renderPage();
+  await sbSet('lt_habit_logs',obj);
+}
+async function toggleHabit(habitId,wasDone){
+  const done=wasDone==='true';
+  const logs=C.get('cache_lt_habit_logs')||[];
+  const existing=logs.find(l=>l.habit_id===habitId&&l.log_date===today());
+  // Optimistic DOM update
+  const checkEl=document.querySelector(`.habit-check[onclick*="'${habitId}'"]`);
+  if(checkEl){
+    const nowDone=!done;
+    checkEl.classList.toggle('done',nowDone);
+    checkEl.textContent=nowDone?'✓':'';
+    checkEl.setAttribute('onclick',`toggleHabit('${habitId}','${nowDone}')`);
+  }
+  if(done&&existing){
+    const filtered=logs.filter(l=>!(l.habit_id===habitId&&l.log_date===today()));
+    C.set('cache_lt_habit_logs',filtered);
+    await sbDel('lt_habit_logs',existing.id);
+  }else{
+    const obj={id:existing?.id||uid(),habit_id:habitId,log_date:today(),value:1,created_at:new Date().toISOString()};
+    if(existing){const i=logs.findIndex(l=>l.id===existing.id);logs[i]=obj;}else logs.push(obj);
+    C.set('cache_lt_habit_logs',logs);
+    await sbSet('lt_habit_logs',obj);
+  }
+}
+function openHabitModal(id=null){
+  editingId=id;
+  const all=C.get('cache_lt_habits')||[];
+  const h=id?all.find(x=>x.id===id):{};
+  showModal(`<div class="modal-title">${id?'Edit Habit':'New Habit'}</div>
+    <div class="form-group"><label class="form-label">Habit Name *</label><input class="form-input" id="h_name" value="${esc(h.name||'')}" placeholder="e.g. Morning walk, Meditate, Read 20 min"/></div>
+    <div class="form-group"><label class="form-label">Icon (emoji)</label><input class="form-input" id="h_icon" value="${esc(h.icon||'')}" placeholder="🏃"/></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveHabit()">Save</button>
+      ${id?`<button class="btn btn-danger btn-sm" onclick="delHabit('${id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveHabit(){
+  const name=v('h_name').trim();if(!name){alert('Name required');return;}
+  const all=C.get('cache_lt_habits')||[];
+  const existing=editingId?all.find(x=>x.id===editingId):{};
+  const obj={id:editingId||uid(),name,icon:v('h_icon')||'⭐',created_at:existing.created_at||new Date().toISOString()};
+  if(editingId){const i=all.findIndex(x=>x.id===editingId);if(i>-1)all[i]=obj;else all.push(obj);}else all.push(obj);
+  C.set('cache_lt_habits',all);closeModal();go('health');
+  await sbSet('lt_habits',obj);
+}
+async function delHabit(id){
+  if(!confirm('Delete habit?'))return;
+  const all=(C.get('cache_lt_habits')||[]).filter(x=>x.id!==id);
+  C.set('cache_lt_habits',all);closeModal();go('health');
+  await sbDel('lt_habits',id);
+}
+
+// ═══════════════════════════════════
+//  SCHEDULE
+// ═══════════════════════════════════
+async function renderSchedule(){
+  const events=await sbGet('lt_schedule');
+  const todayEvents=events.filter(e=>e.event_date===today()).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const upcomingEvents=events.filter(e=>e.event_date>today()).sort((a,b)=>a.event_date.localeCompare(b.event_date)||a.time.localeCompare(b.time)).slice(0,10);
+  return`
+  <div class="page-title">Schedule</div>
+  <div class="page-sub">Today & Upcoming</div>
+  <div class="card">
+    <div class="section-label">Today — ${fmtDate(today())}</div>
+    ${todayEvents.length?todayEvents.map(e=>`<div class="timeline-row">
+      <div class="timeline-time">${fmtTime(e.time)}</div>
+      <div class="timeline-dot ${e.done?'done':''}"></div>
+      <div class="timeline-content" onclick="openScheduleModal('${e.id}')">
+        <div class="timeline-title" style="${e.done?'text-decoration:line-through;color:var(--muted)':''}">${esc(e.title)}</div>
+        ${e.tag?`<div class="timeline-tag">${esc(e.tag)}</div>`:''}
+      </div>
+      <div onclick="toggleEvent('${e.id}')" style="cursor:pointer;color:${e.done?'var(--accent2)':'var(--muted)'};font-size:18px;padding:0 4px">${e.done?'✓':'○'}</div>
+    </div>`).join(''):emptyState('📅','Nothing scheduled today. Tap + to add.')}
+  </div>
+  ${upcomingEvents.length?`<div class="card">
+    <div class="section-label">Upcoming</div>
+    ${upcomingEvents.map(e=>`<div class="timeline-row">
+      <div class="timeline-time">${fmtDate(e.event_date).slice(0,6)}</div>
+      <div class="timeline-dot"></div>
+      <div class="timeline-content" onclick="openScheduleModal('${e.id}')">
+        <div class="timeline-title">${esc(e.title)}</div>
+        ${e.time?`<div class="timeline-tag">${fmtTime(e.time)}${e.tag?' · '+e.tag:''}</div>`:''}
+      </div>
+    </div>`).join('')}
+  </div>`:''}`;
+}
+async function toggleEvent(id){
+  const all=C.get('cache_lt_schedule')||[];
+  const i=all.findIndex(e=>e.id===id);
+  if(i===-1)return;
+  all[i].done=!all[i].done;
+  C.set('cache_lt_schedule',all);
+  const nowDone=all[i].done;
+  // Optimistic DOM update
+  const btn=document.querySelector(`[onclick="toggleEvent('${id}')"]`);
+  if(btn){btn.textContent=nowDone?'✓':'○';btn.style.color=nowDone?'var(--accent2)':'var(--muted)';}
+  const row=btn?.closest('.timeline-row');
+  if(row){
+    const dot=row.querySelector('.timeline-dot');
+    if(dot)dot.classList.toggle('done',nowDone);
+    const title=row.querySelector('.timeline-title');
+    if(title){title.style.textDecoration=nowDone?'line-through':'none';title.style.color=nowDone?'var(--muted)':'';}
+  }
+  await sbSet('lt_schedule',all[i]);
+}
+function openScheduleModal(id=null){
+  editingId=id;
+  const all=C.get('cache_lt_schedule')||[];
+  const e=id?all.find(x=>x.id===id):{};
+  showModal(`<div class="modal-title">${id?'Edit Event':'New Event'}</div>
+    <div class="form-group"><label class="form-label">Title *</label><input class="form-input" id="ev_title" value="${esc(e.title||'')}" placeholder="e.g. Doctor appointment"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date *</label><input class="form-input" id="ev_date" type="date" value="${e.event_date||today()}"/></div>
+      <div class="form-group"><label class="form-label">Time</label><input class="form-input" id="ev_time" type="time" value="${e.time||''}"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Tag / Location</label><input class="form-input" id="ev_tag" value="${esc(e.tag||'')}" placeholder="e.g. Work, Personal, Hospital"/></div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="ev_notes">${esc(e.notes||'')}</textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveEvent()">Save</button>
+      ${id?`<button class="btn btn-danger btn-sm" onclick="delEvent('${id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveEvent(){
+  const title=v('ev_title').trim();if(!title){alert('Title required');return;}
+  const all=C.get('cache_lt_schedule')||[];
+  const existing=editingId?all.find(x=>x.id===editingId):{};
+  const obj={id:editingId||uid(),title,event_date:v('ev_date')||today(),time:v('ev_time')||'',tag:v('ev_tag'),notes:v('ev_notes'),done:existing.done||false,created_at:existing.created_at||new Date().toISOString()};
+  if(editingId){const i=all.findIndex(x=>x.id===editingId);if(i>-1)all[i]=obj;else all.push(obj);}else all.push(obj);
+  C.set('cache_lt_schedule',all);closeModal();go('schedule');
+  await sbSet('lt_schedule',obj);
+}
+async function delEvent(id){
+  if(!confirm('Delete event?'))return;
+  const all=(C.get('cache_lt_schedule')||[]).filter(x=>x.id!==id);
+  C.set('cache_lt_schedule',all);closeModal();go('schedule');
+  await sbDel('lt_schedule',id);
+}
+
+// ═══════════════════════════════════
+//  REMINDERS
+// ═══════════════════════════════════
+async function renderReminders(){
+  const reminders=await sbGet('lt_reminders');
+  const active=reminders.filter(r=>!r.done).sort((a,b)=>{
+    if(a.urgent&&!b.urgent)return-1;if(!a.urgent&&b.urgent)return 1;
+    return(a.due_at||'').localeCompare(b.due_at||'');
+  });
+  const done=reminders.filter(r=>r.done);
+  const now=new Date().toISOString();
+  return`
+  <div class="page-title">Reminders</div>
+  <div class="page-sub">${active.length} active · ${done.length} done</div>
+  ${active.length?active.map(r=>{
+    const isDue=r.due_at&&r.due_at<=now;
+    return`<div class="reminder-item ${r.urgent?'urgent':''}">
+      <div class="reminder-body" onclick="openReminderModal('${r.id}')">
+        <div class="reminder-text">${r.urgent?`<span style="color:var(--red);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin-right:6px">URGENT</span>`:''}${esc(r.text)}</div>
+        <div class="reminder-when">${r.due_at?fmtDate(r.due_at.slice(0,10))+' · '+fmtTime(r.due_at.slice(11,16)):'No due time'}${isDue?` · <span style="color:var(--red);font-weight:600">Due now</span>`:''}</div>
+      </div>
+      <div class="reminder-actions">
+        <button onclick="snoozeReminder('${r.id}')" class="btn btn-ghost btn-sm" style="font-size:11px">+1hr</button>
+        <button onclick="dismissReminder('${r.id}')" class="btn btn-ghost btn-sm" style="font-size:11px">Done</button>
+      </div>
+    </div>`;
+  }).join(''):emptyState('','No active reminders. Tap + to add.')}
+  ${done.length?`<div style="margin-top:16px">
+    <div class="section-label" style="margin-bottom:8px">Completed</div>
+    ${done.slice(0,5).map(r=>`<div class="reminder-item done">
+      <div class="reminder-body"><div class="reminder-text">${esc(r.text)}</div></div>
+      <button onclick="delReminder('${r.id}')" class="btn btn-ghost btn-sm" style="font-size:11px">Remove</button>
+    </div>`).join('')}
+  </div>`:''}`;
+}
+function openReminderModal(id=null){
+  editingId=id;
+  const all=C.get('cache_lt_reminders')||[];
+  const r=id?all.find(x=>x.id===id):{};
+  const dueDate=r.due_at?r.due_at.slice(0,10):'';
+  const dueTime=r.due_at?r.due_at.slice(11,16):'';
+  showModal(`<div class="modal-title">${id?'Edit Reminder':'New Reminder'}</div>
+    <div class="form-group"><label class="form-label">Reminder Text *</label><textarea class="form-textarea" id="r_text">${esc(r.text||'')}</textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Due Date</label><input class="form-input" id="r_date" type="date" value="${dueDate}"/></div>
+      <div class="form-group"><label class="form-label">Due Time</label><input class="form-input" id="r_time" type="time" value="${dueTime}"/></div>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="r_urgent" ${r.urgent?'checked':''} style="width:18px;height:18px;accent-color:var(--accent2)"/>
+      <label for="r_urgent" style="font-size:14px;cursor:pointer">Mark as Urgent</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveReminder()">Save</button>
+      ${id?`<button class="btn btn-danger btn-sm" onclick="delReminder('${id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveReminder(){
+  const text=v('r_text').trim();if(!text){alert('Text required');return;}
+  const date=v('r_date');const time=v('r_time');
+  const due_at=date?(time?`${date}T${time}:00`:date+'T09:00:00'):null;
+  const urgent=document.getElementById('r_urgent')?.checked||false;
+  const all=C.get('cache_lt_reminders')||[];
+  const existing=editingId?all.find(x=>x.id===editingId):{};
+  const obj={id:editingId||uid(),text,due_at,urgent,done:existing.done||false,created_at:existing.created_at||new Date().toISOString()};
+  if(editingId){const i=all.findIndex(x=>x.id===editingId);if(i>-1)all[i]=obj;else all.push(obj);}else all.push(obj);
+  C.set('cache_lt_reminders',all);closeModal();go('reminders');
+  await sbSet('lt_reminders',obj);
+  // Schedule notification
+  if(due_at){
+    await requestNotifPermIfNeeded();
+    scheduleNotification(due_at,text,obj.id,urgent);
+  }
+}
+async function dismissReminder(id){
+  const all=C.get('cache_lt_reminders')||[];
+  const i=all.findIndex(r=>r.id===id);
+  if(i===-1)return;
+  all[i].done=true;
+  C.set('cache_lt_reminders',all);
+  _alertedReminders.delete(id);
+  renderPage();
+  await sbSet('lt_reminders',all[i]);
+  toast('Reminder dismissed ✓');
+}
+async function snoozeReminder(id){
+  const all=C.get('cache_lt_reminders')||[];
+  const i=all.findIndex(r=>r.id===id);
+  if(i===-1)return;
+  const snoozeUntil=new Date(Date.now()+60*60*1000).toISOString();
+  all[i].due_at=snoozeUntil;
+  _alertedReminders.delete(id); // allow it to re-fire after snooze
+  C.set('cache_lt_reminders',all);
+  renderPage();
+  await sbSet('lt_reminders',all[i]);
+  toast('Snoozed for 1 hour 💤');
+}
+async function delReminder(id){
+  if(!confirm('Delete reminder?'))return;
+  const all=(C.get('cache_lt_reminders')||[]).filter(x=>x.id!==id);
+  C.set('cache_lt_reminders',all);
+  _alertedReminders.delete(id);
+  renderPage();
+  await sbDel('lt_reminders',id);
+}
+
+// ═══════════════════════════════════
+//  REMINDER ALARM CHECK
+// ═══════════════════════════════════
+const _alertedReminders=new Set();
+
+function fireNotification(title,body,tag){
+  // Use SW showNotification if available (works even when app backgrounded on Android/PWA)
+  if('serviceWorker' in navigator&&navigator.serviceWorker.controller){
+    navigator.serviceWorker.controller.postMessage({type:'NOTIFY',title,body,tag,icon:'lt-icon-192.png'});
+  } else if('Notification' in window&&Notification.permission==='granted'){
+    new Notification(title,{body,icon:'lt-icon-192.png',tag,renotify:true});
+  }
+}
+
+function checkReminders(){
+  const reminders=C.get('cache_lt_reminders')||[];
+  const now=new Date().toISOString();
+  reminders.filter(r=>!r.done&&r.due_at&&r.due_at<=now).forEach(r=>{
+    if(_alertedReminders.has(r.id))return;
+    _alertedReminders.add(r.id);
+    fireNotification('LifeTrack Reminder'+(r.urgent?' — URGENT':''),r.text,'reminder-'+r.id);
+    updateBadges();
+  });
+}
+
+// Schedule a future notification using setTimeout (works in foreground)
+// For backgrounded PWA, the SW handles it via periodic sync fallback
+function scheduleNotification(due_at,text,id,urgent){
+  if(!due_at)return;
+  const ms=new Date(due_at)-Date.now();
+  if(ms<=0||ms>7*24*60*60*1000)return; // only schedule within 7 days
+  setTimeout(()=>{
+    if(_alertedReminders.has(id))return;
+    _alertedReminders.add(id);
+    fireNotification('LifeTrack Reminder'+(urgent?' — URGENT':''),text,'reminder-'+id);
+    updateBadges();
+  },ms);
+}
+
+function scheduleAllReminders(){
+  const reminders=C.get('cache_lt_reminders')||[];
+  reminders.filter(r=>!r.done&&r.due_at).forEach(r=>scheduleNotification(r.due_at,r.text,r.id,r.urgent));
+}
+
+// Also schedule tasks due today
+function checkTasksDue(){
+  const tasks=C.get('cache_lt_tasks')||[];
+  const t=today();
+  tasks.filter(tk=>tk.status!=='done'&&tk.due_date===t).forEach(tk=>{
+    const key='task-'+tk.id;
+    if(_alertedReminders.has(key))return;
+    _alertedReminders.add(key);
+    fireNotification('Task Due Today',tk.title,'task-'+tk.id);
+  });
+}
+
+setInterval(checkReminders,60000); // check every minute
+
+
+
+// ═══════════════════════════════════
+//  PWA INSTALL PROMPT
+// ═══════════════════════════════════
+let _pwaPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  _pwaPrompt=e;
+  if(!localStorage.getItem('pwa_dismissed')){
+    const banner=document.getElementById('pwa-banner');
+    if(banner)banner.style.display='flex';
+  }
+});
+async function installPWA(){
+  if(!_pwaPrompt)return;
+  _pwaPrompt.prompt();
+  const{outcome}=await _pwaPrompt.userChoice;
+  _pwaPrompt=null;
+  document.getElementById('pwa-banner')?.style && (document.getElementById('pwa-banner').style.display='none');
+  if(outcome==='accepted')toast('LifeTrack installed!');
+}
+function dismissPWA(){
+  const b=document.getElementById('pwa-banner');
+  if(b)b.style.display='none';
+  localStorage.setItem('pwa_dismissed','1');
+}
+
+// ═══════════════════════════════════
+//  NOTES / JOURNAL
+// ═══════════════════════════════════
+const NOTE_TAGS=['Personal','Work','Health','Ideas','Goals','Gratitude','Other'];
+async function renderNotes(){
+  const notes=await sbGet('lt_notes');
+  const sorted=[...notes].sort((a,b)=>(b.updated_at||b.created_at||'').localeCompare(a.updated_at||a.created_at||''));
+  return`
+  <div class="page-title">Notes</div>
+  <div class="page-sub">${sorted.length} note${sorted.length!==1?'s':''}</div>
+  <div class="card" style="padding:8px 12px">
+    <input class="form-input" id="noteSearch" placeholder="Search notes…" oninput="filterNoteList()" style="margin:0"/>
+  </div>
+  <div id="noteList">${sorted.length?sorted.map(noteCard).join(''):emptyState('','No notes yet. Tap + to write.')}</div>`;
+}
+function noteCard(n){
+  const preview=(n.body||'').slice(0,120)+(n.body?.length>120?'…':'');
+  return`<div class="note-card" onclick="openNoteModal('${n.id}')">
+    ${n.title?`<div class="note-card-title">${esc(n.title)}</div>`:''}
+    <div class="note-card-body">${esc(preview)||'<em style="color:var(--muted)">Empty note</em>'}</div>
+    <div class="note-card-meta">
+      <div>${n.tag?`<span class="note-tag">${esc(n.tag)}</span>`:''}${fmtDate((n.updated_at||n.created_at||'').slice(0,10))}</div>
+    </div>
+  </div>`;
+}
+function filterNoteList(){
+  const q=(document.getElementById('noteSearch')?.value||'').toLowerCase();
+  const notes=C.get('cache_lt_notes')||[];
+  const filtered=notes
+    .sort((a,b)=>(b.updated_at||b.created_at||'').localeCompare(a.updated_at||a.created_at||''))
+    .filter(n=>!q||(n.title||'').toLowerCase().includes(q)||(n.body||'').toLowerCase().includes(q)||(n.tag||'').toLowerCase().includes(q));
+  document.getElementById('noteList').innerHTML=filtered.length?filtered.map(noteCard).join(''):emptyState('','No notes match your search.');
+}
+function openNoteModal(id=null){
+  editingId=id;
+  const all=C.get('cache_lt_notes')||[];
+  const n=id?all.find(x=>x.id===id):{};
+  showModal(`<div class="modal-title">${id?'Edit Note':'New Note'}</div>
+    <div class="form-group"><label class="form-label">Title (optional)</label><input class="form-input" id="n_title" value="${esc(n.title||'')}" placeholder="e.g. Weekly reflection"/></div>
+    <div class="form-group"><label class="form-label">Body *</label><textarea class="form-textarea" id="n_body" rows="8" style="min-height:160px">${esc(n.body||'')}</textarea></div>
+    <div class="form-group"><label class="form-label">Tag</label>
+      <select class="form-select" id="n_tag"><option value="">— None —</option>${NOTE_TAGS.map(t=>`<option value="${t}" ${n.tag===t?'selected':''}>${t}</option>`).join('')}</select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveNote()">Save</button>
+      ${id?`<button class="btn btn-danger btn-sm" onclick="delNote('${id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+  // Focus body after modal opens
+  setTimeout(()=>document.getElementById('n_body')?.focus(),100);
+}
+async function saveNote(){
+  const body=v('n_body').trim();if(!body){alert('Write something first');return;}
+  const all=C.get('cache_lt_notes')||[];
+  const existing=editingId?all.find(x=>x.id===editingId):{};
+  const obj={id:editingId||uid(),title:v('n_title').trim(),body,tag:v('n_tag')||'',updated_at:new Date().toISOString(),created_at:existing.created_at||new Date().toISOString()};
+  if(editingId){const i=all.findIndex(x=>x.id===editingId);if(i>-1)all[i]=obj;else all.unshift(obj);}else all.unshift(obj);
+  C.set('cache_lt_notes',all);closeModal();go('notes');
+  await sbSet('lt_notes',obj);
+}
+async function delNote(id){
+  if(!confirm('Delete this note?'))return;
+  const all=(C.get('cache_lt_notes')||[]).filter(x=>x.id!==id);
+  C.set('cache_lt_notes',all);closeModal();go('notes');
+  await sbDel('lt_notes',id);
+}
+
+// ═══════════════════════════════════
+//  SETTINGS PAGE
+// ═══════════════════════════════════
+function renderSettings(){
+  const s=getSettings();
+  const avatarImg=localStorage.getItem('lt_avatar');
+  const notifStatus='Notification' in window?Notification.permission:'not supported';
+  return`
+  <div class="page-title">Settings</div>
+  <div class="page-sub">Your preferences and account</div>
+
+  <div class="card">
+    <div class="section-label" style="margin-bottom:14px">Profile</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+      <div onclick="document.getElementById('avatarInput').click()" style="width:60px;height:60px;border-radius:50%;background:var(--card);border:2px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)'">
+        ${avatarImg?`<img src="${avatarImg}" style="width:100%;height:100%;object-fit:cover"/>`:`<span style="font-size:22px;color:var(--muted)">${s.name?s.name[0].toUpperCase():'?'}</span>`}
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">Profile Photo</div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('avatarInput').click()">Upload Photo</button>
+        ${avatarImg?`<button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="localStorage.removeItem('lt_avatar');updateDrawerProfile();renderPage();toast('Photo removed')">Remove</button>`:''}
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:0">
+      <label class="form-label">Your Name</label>
+      <input class="form-input" id="st_name" value="${esc(s.name||'')}" placeholder="e.g. Joshua"/>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label" style="margin-bottom:14px">Notifications</div>
+    <div class="card-row">
+      <span class="card-label">Push Notifications</span>
+      <button class="btn btn-ghost btn-sm" onclick="requestNotifPermIfNeeded().then(()=>renderPage())">
+        ${notifStatus==='granted'?'Enabled':'Enable'}
+      </button>
+    </div>
+    <div class="card-row" style="border-bottom:none">
+      <span class="card-label">Status</span>
+      <span style="font-size:13px;color:${notifStatus==='granted'?'#5aab7a':notifStatus==='denied'?'var(--red)':'var(--muted)'}">${notifStatus}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label" style="margin-bottom:14px">Finance</div>
+    <div class="form-group">
+      <label class="form-label">Currency</label>
+      <select class="form-select" id="st_currency">
+        <option ${s.currency==='JMD $'?'selected':''}>JMD $</option>
+        <option ${s.currency==='USD $'?'selected':''}>USD $</option>
+        <option ${s.currency==='EUR €'?'selected':''}>EUR €</option>
+        <option ${s.currency==='GBP £'?'selected':''}>GBP £</option>
+        <option ${s.currency==='CAD $'?'selected':''}>CAD $</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:0">
+      <label class="form-label">Monthly Budget</label>
+      <input class="form-input" id="st_budget" type="number" value="${s.monthlyBudget||80000}"/>
+      <div class="form-hint">Used for the spending ring on the dashboard</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label" style="margin-bottom:14px">Health Goals</div>
+    <div class="form-row">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Water (glasses/day)</label>
+        <input class="form-input" id="st_water" type="number" value="${s.waterGoal||8}" min="1" max="20"/>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Sleep (hrs/night)</label>
+        <input class="form-input" id="st_sleep" type="number" value="${s.sleepGoal||8}" min="1" max="14"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label" style="margin-bottom:14px">Data</div>
+    <div class="card-row" onclick="exportData()" style="cursor:pointer">
+      <span class="card-label">Export / Backup</span>
+      <span style="color:var(--muted);font-size:18px">›</span>
+    </div>
+    <div class="card-row" style="border-bottom:none;cursor:pointer" onclick="confirmClearCache()">
+      <span class="card-label">Clear local cache</span>
+      <span style="color:var(--muted);font-size:18px">›</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-row"><span class="card-label">Version</span><span style="font-size:13px;color:var(--muted)">1.0.0</span></div>
+    <div class="card-row" style="border-bottom:none"><span class="card-label">Sync</span><span id="stSyncLabel" style="font-size:13px;color:var(--muted)">—</span></div>
+  </div>
+
+  <button class="btn btn-primary btn-full" style="margin-top:4px" onclick="saveSettingsPage()">Save Settings</button>`;
+}
+function saveSettingsPage(){
+  saveSettings({...getSettings(),
+    name:v('st_name'),
+    currency:v('st_currency'),
+    monthlyBudget:Number(v('st_budget'))||80000,
+    waterGoal:Number(v('st_water'))||8,
+    sleepGoal:Number(v('st_sleep'))||8,
+  });
+  updateDrawerProfile();
+  toast('Settings saved');
+  renderPage();
+}
+function requestNotifPerm(){
+  if(!('Notification' in window))return;
+  Notification.requestPermission().then(p=>{toast(p==='granted'?'Notifications enabled':'Permission '+p);});
+}
+function confirmClearCache(){
+  if(!confirm('Clear all local cached data? Your cloud data is safe.'))return;
+  Object.keys(localStorage).filter(k=>k.startsWith('cache_')).forEach(k=>localStorage.removeItem(k));
+  toast('Cache cleared');
+}
+
+function exportData(){
+  showModal(`<div class="modal-title">Export Data</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+      <button class="btn btn-primary btn-full" onclick="doExport('json')">Export as JSON (full backup)</button>
+      <button class="btn btn-ghost btn-full" onclick="doExport('csv-expenses')">Export Expenses as CSV</button>
+      <button class="btn btn-ghost btn-full" onclick="doExport('csv-income')">Export Income as CSV</button>
+      <button class="btn btn-ghost btn-full" onclick="doExport('csv-tasks')">Export Tasks as CSV</button>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+function doExport(type){
+  let content,filename,mime;
+  const toCSV=(rows,cols)=>[cols.join(','),...rows.map(r=>cols.map(c=>`"${String(r[c]||'').replace(/"/g,'""')}"`).join(','))].join('\n');
+  if(type==='json'){
+    content=JSON.stringify({
+      exported:new Date().toISOString(),
+      expenses:C.get('cache_lt_expenses')||[],
+      income:C.get('cache_lt_income')||[],
+      tasks:C.get('cache_lt_tasks')||[],
+      habits:C.get('cache_lt_habits')||[],
+      schedule:C.get('cache_lt_schedule')||[],
+      reminders:C.get('cache_lt_reminders')||[],
+      notes:C.get('cache_lt_notes')||[],
+      settings:C.getObj('lt_settings'),
+    },null,2);
+    filename=`lifetrack-backup-${today()}.json`;mime='application/json';
+  }else if(type==='csv-expenses'){
+    content=toCSV(C.get('cache_lt_expenses')||[],['date','name','category','amount','note','recurring']);
+    filename=`lifetrack-expenses-${today()}.csv`;mime='text/csv';
+  }else if(type==='csv-income'){
+    content=toCSV(C.get('cache_lt_income')||[],['date','source','category','amount']);
+    filename=`lifetrack-income-${today()}.csv`;mime='text/csv';
+  }else if(type==='csv-tasks'){
+    content=toCSV(C.get('cache_lt_tasks')||[],['title','description','priority','status','due_date','category']);
+    filename=`lifetrack-tasks-${today()}.csv`;mime='text/csv';
+  }
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+  closeModal();toast('Downloaded! ✓');
+}
+
+
+async function applyRecurringExpenses(){
+  const all=C.get('cache_lt_expenses')||[];
+  const mo=thisMonth();
+  const recurring=all.filter(e=>e.recurring);
+  const existing=new Set(all.filter(e=>(e.date||'').startsWith(mo)).map(e=>e.recurring_source||e.id));
+  const toAdd=[];
+  recurring.forEach(e=>{
+    // Already cloned this month?
+    if(existing.has(e.id))return;
+    // Source is from this month itself — skip (it IS the original)
+    if((e.date||'').startsWith(mo))return;
+    const newObj={...e,id:uid(),date:`${mo}-${(e.date||'--01').slice(8,10)}`,recurring_source:e.id,created_at:new Date().toISOString()};
+    toAdd.push(newObj);
+  });
+  if(!toAdd.length)return;
+  const updated=[...toAdd,...all];
+  C.set('cache_lt_expenses',updated);
+  for(const obj of toAdd)await sbSet('lt_expenses',obj);
+}
+
+
+async function requestNotifPermIfNeeded(){
+  if(!('Notification' in window))return;
+  if(Notification.permission==='default') await Notification.requestPermission();
+}
+
+async function init(){
+  isOnline=navigator.onLine;
+  if(isOnline){
+    try{
+      await sb.from('lt_reminders').select('count',{count:'exact',head:true});
+      setSync('live','Live');
+    }catch{
+      // DB reachable but query failed — still treat as online, individual ops will retry
+      setSync('live','Live');
+    }
+  }else{
+    setSync('err','Offline');
+  }
+  if('serviceWorker' in navigator){
+    try{await navigator.serviceWorker.register('lt-sw.js');await navigator.serviceWorker.ready;}catch(e){}
+  }
+  await requestNotifPermIfNeeded();
+  updateDrawerProfile();
+  go('dashboard');
+  checkReminders();
+  scheduleAllReminders();
+  checkTasksDue();
+  applyRecurringExpenses();
+}
+init();
+</script>
+</body>
+</html>
