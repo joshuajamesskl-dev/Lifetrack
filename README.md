@@ -1,67 +1,107 @@
 # LifeTrack
 
-A personal life management PWA — Budget, Tasks, Health, Schedule & Reminders — built as a single HTML file with offline support.
+Personal life management app — Budget, Tasks, Health, Schedule & Reminders.
 
-## Features
+Hosted on GitHub Pages as a PWA. Built as a native Android APK via GitHub Actions.
 
-- **Budget** — track income and expenses with recurring support
-- **Tasks** — to-dos with due dates and priority
-- **Health** — water intake, sleep, habits, weight log
-- **Schedule** — daily calendar events
-- **Reminders** — timed alerts with push notifications
-- **Notes** — journal / freeform notes
-- **Offline** — works without internet via Service Worker cache
-- **Installable** — add to home screen on Android/iOS
+---
 
-## Setup
+## How to get the Android APK (with real alarms)
 
-### 1. Clone and deploy to GitHub Pages
+### Step 1 — Fork or push this repo to GitHub
 
-```bash
-git clone https://github.com/YOUR_USERNAME/lifetrack.git
-cd lifetrack
+If you haven't already:
+```
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/YOUR_USERNAME/lifetrack.git
+git push -u origin main
 ```
 
-Enable GitHub Pages in **Settings → Pages → Branch: main → / (root)**.
+### Step 2 — Enable GitHub Actions
 
-Your app will be live at:
-```
-https://YOUR_USERNAME.github.io/lifetrack/index.html
-```
+1. Go to your repo on GitHub
+2. Click the **Actions** tab
+3. If prompted, click **"I understand my workflows, go ahead and enable them"**
 
-### 2. Supabase (optional — for cloud sync)
+### Step 3 — Trigger your first build
 
-The app works fully offline without Supabase. To enable cloud sync:
+GitHub Actions will automatically build when you push to `main`.
 
-1. Create a free project at [supabase.com](https://supabase.com)
-2. Run `lifetrack-schema.sql` in the Supabase SQL editor
-3. Open `index.html` and replace the two placeholders near the top:
+Or trigger it manually:
+1. Go to **Actions** tab
+2. Click **"Build LifeTrack APK"** in the left sidebar
+3. Click **"Run workflow"** → **"Run workflow"**
+4. Wait ~10 minutes
 
+### Step 4 — Download the APK
+
+1. When the build finishes, go to the **Releases** tab on your repo
+2. Download `app-debug.apk`
+3. Transfer it to your Android phone (email it, Google Drive, direct download)
+
+### Step 5 — Install on Android
+
+1. Open the APK on your phone
+2. If it says "Install blocked" → go to **Settings → Security → Unknown sources** and allow it
+3. Tap Install
+4. Open LifeTrack
+
+### Step 6 — Grant alarm permissions
+
+On Android 12+:
+1. Open LifeTrack
+2. When prompted, allow **Notifications**
+3. Go to phone **Settings → Apps → LifeTrack → Permissions** and allow **Alarms & Reminders**
+
+---
+
+## What works in native APK vs browser
+
+| Feature | Browser PWA | Native APK |
+|---|---|---|
+| Push notifications | ✅ (app minimized) | ✅ (app fully closed) |
+| Alarm sound | ✅ (foreground only) | ✅ (always) |
+| Vibration | ✅ Android only | ✅ always |
+| Background alarms | ❌ | ✅ |
+| Works offline | ✅ | ✅ |
+
+---
+
+## Web version (GitHub Pages)
+
+Enable GitHub Pages:
+**Settings → Pages → Branch: main → / (root) → Save**
+
+URL: `https://YOUR_USERNAME.github.io/lifetrack/`
+
+---
+
+## Supabase cloud sync (optional)
+
+1. Create free project at supabase.com
+2. Run `lifetrack-schema.sql` in the SQL editor
+3. Replace in `index.html`:
 ```js
 const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
-const SUPABASE_KEY = 'your-anon-public-key';
+const SUPABASE_KEY = 'your-anon-key';
 ```
 
-### 3. Push Notifications
+---
 
-On first launch the app requests notification permission. On Android (installed as PWA), notifications fire even when the app is backgrounded via the Service Worker.
-
-## File Structure
+## File structure
 
 ```
-index.html      ← entire app (HTML + CSS + JS)
-lt-sw.js              ← service worker (caching + push notifications)
-lt-manifest.json      ← PWA manifest (name, icons, display mode)
-lt-icon-192.png       ← app icon 192×192
-lt-icon-512.png       ← app icon 512×512
-lifetrack-schema.sql  ← Supabase DB schema (optional)
+index.html              ← entire app
+lt-sw.js                ← service worker
+lt-manifest.json        ← PWA manifest
+lt-icon-192.png         ← app icon
+lt-icon-512.png         ← app icon
+capacitor.config.json   ← Capacitor config
+package.json            ← dependencies
+lifetrack-schema.sql    ← Supabase schema
+.github/
+  workflows/
+    build-apk.yml       ← GitHub Actions build
 ```
-
-## Install as PWA
-
-**Android (Chrome):** Open the URL → browser prompts "Add to Home Screen" → tap Install.  
-**iOS (Safari):** Open the URL → Share → Add to Home Screen.
-
-## License
-
-MIT
